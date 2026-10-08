@@ -17,6 +17,10 @@ TEXT = {
         "no_reports_help": "Ask your administrator to add authorized report views so you can query and export data.",
         "query_failed": "The query could not be completed. Ask your administrator to check the connection, permissions, or report configuration.",
         "rows": "{count} rows", "no_rows": "Query completed. No data was returned.",
+        "report_date": "Report date", "warehouse": "Warehouse",
+        "daily_limit_help": "Sorted by event time. Up to the selected row limit; reaching that limit may mean more results are available.",
+        "daily_modified_help": "Loads whose current last-modified timestamp falls on this date. This is a temporary creation-date proxy; later edits can change the date.",
+        "daily_dispatch_help": "Outbound dispatch events on this date, including loads created earlier. A load dispatched multiple times may appear more than once.",
     },
     "zh-CN": {
         "title": "JDA 报表工作台", "brand": "报表工作台", "readonly": "只读查询",
@@ -30,6 +34,10 @@ TEXT = {
         "no_reports": "还没有配置报表", "no_reports_help": "请联系管理员添加已授权的报表视图，然后即可查询和导出。",
         "query_failed": "查询未完成，请联系管理员检查连接、权限或报表配置。",
         "rows": "{count} 行", "no_rows": "查询完成，没有符合条件的数据。",
+        "report_date": "报表日期", "warehouse": "仓库",
+        "daily_limit_help": "按事件时间排序，最多返回所选行数；达到上限时可能还有更多结果。",
+        "daily_modified_help": "查询当前最后修改时间落在当天的 load，暂作创建日期参考；后续修改会改变这个日期。",
+        "daily_dispatch_help": "查询当天的 outbound dispatch 事件，包含此前创建的 load；重复 dispatch 会出现多条。",
     },
 }
 

@@ -9,6 +9,7 @@ from app.db import identifier, odbc_value
 @pytest.fixture
 def app(tmp_path, monkeypatch):
     monkeypatch.setenv("REPORT_OBJECTS", json.dumps([{"label": "Test view", "schema": "dbo", "object": "TestView"}]))
+    monkeypatch.setenv("REPORT_QUERIES_FILE", str(tmp_path / "no-live-query-config.json"))
     app = create_app({"TESTING": True, "SECRET_KEY": "test-secret-" * 4, "SESSION_COOKIE_SECURE": False, "STORE": str(tmp_path / "users.db")})
     with sqlite3.connect(app.config["STORE"]) as db:
         db.execute("INSERT INTO users(name,password) VALUES (?,?)", ("tester", generate_password_hash("testing-password")))
@@ -121,6 +122,7 @@ def test_sql_escaping():
 def test_real_query_is_bounded_select(monkeypatch):
     from app import db
     monkeypatch.setenv("REPORT_OBJECTS", '[{"label":"Example","schema":"dbo","object":"a]b"}]')
+    monkeypatch.setenv("REPORT_QUERIES_FILE", "/nonexistent/test-report-queries.json")
     statements = []
     class Cursor:
         description = [("value",)]
@@ -137,3 +139,56 @@ def test_real_query_is_bounded_select(monkeypatch):
     monkeypatch.setattr(db, "connect", Connection)
     assert db.query_report(0, 2000) == (["value"], [["1"]])
     assert statements == ["SET LOCK_TIMEOUT 5000", "SELECT TOP (1000) * FROM [dbo].[a]]b]"]
+
+
+def test_daily_filters_validate_before_query(app, tmp_path, monkeypatch):
+    config = tmp_path / "queries.json"
+    config.write_text(json.dumps([{"label": "Daily report", "kind": "daily", "warehouses": ["TEST"],
+                                   "sql": "SELECT TOP (?) value FROM example WHERE warehouse=? AND stamp>=? AND stamp<?"}]))
+    monkeypatch.setenv("REPORT_QUERIES_FILE", str(config))
+    calls = []
+    def query(*args):
+        calls.append(args)
+        return ["load_number"], [["sample"]]
+    monkeypatch.setattr("app.query_report", query)
+    client = app.test_client()
+    login(client)
+    page = client.get("/")
+    assert page.status_code == 200 and b'sample' in page.data
+    assert calls[0][0] == 1 and calls[0][3] == "TEST"
+    with client.session_transaction() as session:
+        token = session["csrf"]
+    calls.clear()
+    for data in [{"report_date": "2026-10-08", "warehouse": "UNAPPROVED"},
+                 {"report_date": "2026-10-08'; DROP", "warehouse": "TEST"}]:
+        response = client.post("/", data={"csrf": token, "report": "1", **data})
+        assert response.status_code == 400
+    assert calls == []
+    result = client.post("/", data={"csrf": token, "report": "1", "report_date": "2026-10-08", "warehouse": "TEST", "action": "export"})
+    assert result.mimetype == "text/csv"
+    assert calls == [(1, 200, "2026-10-08", "TEST")]
+
+
+def test_daily_query_binds_date_boundaries(tmp_path, monkeypatch):
+    from datetime import datetime
+    from app import db
+    config = tmp_path / "queries.json"
+    sql = "SELECT TOP (?) value FROM example WHERE warehouse=? AND stamp>=? AND stamp<?"
+    config.write_text(json.dumps([{"label": "Daily", "kind": "daily", "warehouses": ["TEST"], "sql": sql}]))
+    monkeypatch.setenv("REPORT_OBJECTS", "[]")
+    monkeypatch.setenv("REPORT_QUERIES_FILE", str(config))
+    statements = []
+    class Cursor:
+        description = [("value",)]
+        def execute(self, statement, *parameters):
+            statements.append((statement, parameters))
+        def fetchmany(self, cap):
+            return []
+    class Connection:
+        def cursor(self):
+            return Cursor()
+        def close(self):
+            pass
+    monkeypatch.setattr(db, "connect", Connection)
+    db.query_report(0, 2000, "2026-10-08", "TEST")
+    assert statements[-1] == (sql, (1000, "TEST", datetime(2026, 10, 8), datetime(2026, 10, 9)))

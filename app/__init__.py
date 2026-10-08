@@ -7,7 +7,7 @@ import secrets
 import sqlite3
 import time
 from contextlib import closing
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 import click
@@ -125,7 +125,10 @@ def create_app(test_config=None):
     @app.route("/", methods=["GET", "POST"])
     def home():
         entries = reports()
-        columns, rows, error, selected, limit = [], [], None, 0, 200
+        selected = next((i for i, report in enumerate(entries) if report.get("kind") == "daily"), 0)
+        columns, rows, error, limit = [], [], None, 200
+        report_date = request.form.get("report_date", date.today().isoformat())
+        warehouse = request.form.get("warehouse", "")
         if request.method == "POST":
             try:
                 selected = int(request.form.get("report", "-1"))
@@ -134,8 +137,21 @@ def create_app(test_config=None):
                     abort(400)
             except ValueError:
                 abort(400)
+        daily = bool(entries and entries[selected].get("kind") == "daily")
+        if daily:
+            warehouse = warehouse or entries[selected]["warehouses"][0]
             try:
-                columns, rows = query_report(selected, limit)
+                date.fromisoformat(report_date)
+                if warehouse not in entries[selected]["warehouses"]:
+                    abort(400)
+            except ValueError:
+                abort(400)
+        if request.method == "POST" or daily:
+            try:
+                if daily:
+                    columns, rows = query_report(selected, limit, report_date, warehouse)
+                else:
+                    columns, rows = query_report(selected, limit)
             except Exception:
                 audit("query_failed", selected)
                 error = translate("query_failed")
@@ -151,7 +167,9 @@ def create_app(test_config=None):
                     writer.writerow([safe_cell(c) for c in columns])
                     writer.writerows([[safe_cell(v) for v in row] for row in rows])
                     return Response("\ufeff" + output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": 'attachment; filename="jda-report.csv"'})
-        return render_template("home.html", reports=entries, columns=columns, rows=rows, error=error, selected=selected, limit=limit)
+        warehouses = sorted({w for report in entries if report.get("kind") == "daily" for w in report["warehouses"]})
+        return render_template("home.html", reports=entries, columns=columns, rows=rows, error=error, selected=selected,
+                               limit=limit, report_date=report_date, warehouse=warehouse, warehouses=warehouses, daily=daily)
 
     @app.cli.command("create-user")
     @click.argument("username")

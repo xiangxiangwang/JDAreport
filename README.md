@@ -4,6 +4,8 @@ An authenticated SQL Server reporting workspace with account management, adminis
 
 The interface defaults to English. The header language bar switches between English and Chinese and remembers the choice on the same browser, including after sign-out. For custom reports, optionally configure `label_en` and `label_zh` alongside `label`; database column names and values are preserved.
 
+Daily reports can be configured privately using `REPORT_QUERIES_FILE`. The interface provides date and approved-warehouse filters and opens the first daily report on sign-in. Administrator-authored query definitions use `kind: daily`, labels, a warehouse allowlist, and a SELECT beginning with `SELECT TOP (?)`. Parameters are the row limit, warehouse, inclusive start timestamp and exclusive next-day timestamp. Live query definitions stay outside the public repository. Preview and CSV export use the same filters and remain subject to the row limit.
+
 ## Development
 
 Requires Python 3.12 or 3.13. Create a virtual environment and install dependencies:
