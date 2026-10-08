@@ -1,0 +1,5 @@
+# Replace this placeholder with the server's private IP or internal DNS name.
+https://report-server.example.internal:8088 {
+    tls internal
+    reverse_proxy 127.0.0.1:8089
+}

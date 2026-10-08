@@ -1,0 +1,23 @@
+[Unit]
+Description=JDA Report web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jda-report
+Group=jda-report
+WorkingDirectory=/opt/jda-report
+EnvironmentFile=/opt/jda-report/.env
+ExecStart=/opt/jda-report/.venv/bin/python /opt/jda-report/serve.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/jda-report/instance
+
+[Install]
+WantedBy=multi-user.target

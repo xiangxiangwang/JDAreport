@@ -1,0 +1,14 @@
+.venv/
+.env
+instance/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.csv
+*.xlsx
+logs/
+tls/
+proxy/
+runtime/
+installers/
+source.zip
