@@ -92,7 +92,25 @@ def test_errors_do_not_expose_database_details(app, monkeypatch):
         token = session["csrf"]
     response = client.post("/", data={"csrf": token, "report": "0"})
     assert b"private-password-and-host" not in response.data
-    assert "查询未完成" in response.get_data(as_text=True)
+    assert "The query could not be completed" in response.get_data(as_text=True)
+
+
+def test_language_switch_preserves_login_and_requires_csrf(app):
+    client = app.test_client()
+    assert '<html lang="en">' in client.get("/login").get_data(as_text=True)
+    assert client.post("/language", data={"language": "zh-CN"}).status_code == 400
+    assert login(client).status_code == 302
+    with client.session_transaction() as session:
+        token = session["csrf"]
+    response = client.post("/language", data={"csrf": token, "language": "zh-CN", "page": "home"})
+    assert response.location == "/"
+    page = client.get("/").get_data(as_text=True)
+    assert '<html lang="zh-CN">' in page and "查询与导出报表" in page
+    with client.session_transaction() as session:
+        assert session["user"] == "tester"
+    assert client.post("/language", data={"csrf": token, "language": "invalid"}).status_code == 400
+    client.post("/logout", data={"csrf": token})
+    assert "登录报表工作台" in client.get("/login").get_data(as_text=True)
 
 
 def test_sql_escaping():

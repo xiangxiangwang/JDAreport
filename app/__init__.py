@@ -16,12 +16,13 @@ from flask import Flask, abort, redirect, render_template, request, session, url
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .db import query_report, reports
+from .i18n import TEXT, language, report_label, translate
 
 
 def create_app(test_config=None):
     load_dotenv(interpolate=False)
     app = Flask(__name__, instance_relative_config=True)
-    app.config.update(SECRET_KEY=os.getenv("SECRET_KEY"), SESSION_COOKIE_HTTPONLY=True,
+    app.config.update(SECRET_KEY=os.getenv("SECRET_KEY"), DEFAULT_LANGUAGE="en", SESSION_COOKIE_HTTPONLY=True,
                       SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=os.getenv("COOKIE_SECURE", "true") == "true",
                       PERMANENT_SESSION_LIFETIME=timedelta(hours=8), MAX_CONTENT_LENGTH=16384,
                       STORE=str(Path(app.instance_path) / "users.sqlite3"))
@@ -55,7 +56,7 @@ def create_app(test_config=None):
         session.setdefault("csrf", secrets.token_urlsafe(32))
         if request.method == "POST" and not hmac.compare_digest(session["csrf"], request.form.get("csrf", "")):
             abort(400)
-        if request.endpoint not in ("login", "static", "health"):
+        if request.endpoint not in ("login", "static", "health", "set_language"):
             with closing(store()) as connection:
                 user = connection.execute("SELECT version FROM users WHERE name=?", (session.get("user", ""),)).fetchone()
             if not user or user["version"] != session.get("version"):
@@ -74,6 +75,21 @@ def create_app(test_config=None):
     def health():
         return {"status": "ok"}
 
+    @app.context_processor
+    def localization():
+        return {"t": translate, "language": language(), "report_label": report_label}
+
+    @app.post("/language")
+    def set_language():
+        locale = request.form.get("language")
+        if locale not in TEXT:
+            abort(400)
+        target = "home" if request.form.get("page") == "home" else "login"
+        response = redirect(url_for(target))
+        response.set_cookie("jda_language", locale, max_age=365 * 24 * 3600,
+                            secure=app.config["SESSION_COOKIE_SECURE"], httponly=True, samesite="Lax")
+        return response
+
     @app.route("/login", methods=["GET", "POST"])
     def login():
         error = None
@@ -86,7 +102,7 @@ def create_app(test_config=None):
                 attempts = connection.execute("SELECT COUNT(*) FROM attempts WHERE source=?", (source,)).fetchone()[0]
                 if attempts >= 10:
                     connection.commit()
-                    return render_template("login.html", error="尝试次数过多，请 15 分钟后再试。"), 429
+                    return render_template("login.html", error=translate("login_throttled")), 429
                 user = connection.execute("SELECT * FROM users WHERE name=?", (username,)).fetchone()
                 if user and check_password_hash(user["password"], request.form.get("password", "")):
                     connection.commit()
@@ -97,7 +113,7 @@ def create_app(test_config=None):
                     return redirect(url_for("home"))
                 connection.execute("INSERT INTO attempts VALUES (?, ?)", (source, time.time()))
                 connection.commit()
-            error = "用户名或密码错误。"
+            error = translate("login_invalid")
         return render_template("login.html", error=error)
 
     @app.post("/logout")
@@ -122,7 +138,7 @@ def create_app(test_config=None):
                 columns, rows = query_report(selected, limit)
             except Exception:
                 audit("query_failed", selected)
-                error = "查询未完成，请联系管理员检查连接、权限或报表配置。"
+                error = translate("query_failed")
             else:
                 action = "export" if request.form.get("action") == "export" else "preview"
                 audit(action, selected, len(rows))

@@ -2,6 +2,8 @@
 
 An authenticated SQL Server reporting workspace with account management, administrator-configured report objects, bounded previews, and CSV export.
 
+The interface defaults to English. The header language bar switches between English and Chinese and remembers the choice on the same browser, including after sign-out. For custom reports, optionally configure `label_en` and `label_zh` alongside `label`; database column names and values are preserved.
+
 ## Development
 
 Requires Python 3.12 or 3.13. Create a virtual environment and install dependencies:
