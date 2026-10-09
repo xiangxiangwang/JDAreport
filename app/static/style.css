@@ -24,3 +24,11 @@
 .report-actions button:active{box-shadow:none}
 @media(max-width:760px){.controls .report-control{flex-basis:100%;min-width:0}.controls .daily-filter,.controls .limit-control{flex:1 1 140px;min-width:0}.report-actions{width:100%}.report-actions button{flex:1}}
 @media(prefers-reduced-motion:reduce){.controls input,.controls select,.report-actions button{transition:none}}
+
+.controls .date-filter.has-date-navigation{flex:0 1 370px;min-width:0;max-width:100%}
+.date-navigation{display:flex;align-items:center;gap:8px}
+.has-date-navigation .date-navigation input{width:148px;min-width:0;flex:1}
+.date-navigation button{height:46px;padding:0 12px;border-radius:9px;font-size:13px;white-space:nowrap;background:#f3f8f5;border-color:#cbded2;color:#245b43}
+.date-navigation button:hover{background:#e8f2ec;filter:none}
+.date-navigation button:disabled{cursor:default}
+@media(max-width:760px){.controls .date-filter.has-date-navigation{flex-basis:100%}.date-navigation{width:100%}.date-navigation button{padding:0 10px;font-size:12px}}
